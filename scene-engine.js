@@ -26,7 +26,7 @@
     var dom = opts.dom || {};
     var mountSel = opts.mount || '#canvas-container';
     var st = opts.style || {};
-    var GRID_MIN = st.gridMin || 4, GRID_MAX = st.gridMax || 14, STYLE_INTERVAL = st.styleInterval || 3.4;
+    var GRID_MIN = st.gridMin || 3, GRID_MAX = st.gridMax || 5, STYLE_INTERVAL = st.styleInterval || 3.4;
     var BUF_W = 680, BUF_H = 680;
 
     var loaderEl = document.getElementById(dom.loader || 'loader');
@@ -45,10 +45,13 @@
 
     var sketch = function (p) {
       var buf, ctx, D;
-      var chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%&*'.split('');
+      // ASCII glyph palette ordered SPARSE → DENSE so brightness maps to ink
+      // coverage. Dark cells → '.', bright cells → '@'. Position hash adds a
+      // small ±1 nudge for visual variety within a density bucket.
+      var chars = " .'`,:;-~+=ilcoxnzXJCSO0BHWM%#@".split('');
       var t = 0, grid = 4, gridTarget = 4, densDir = 1, mInfX = 0, mInfY = 0;
       var renderMode = 0, prevMode = 0, modeT = 1;
-      var glitchActive = false, glitchIntensity = 0, glitchSlices = [], glitchTimer = 0;
+      var glitchActive = false, glitchIntensity = 0, glitchSlices = [];
       var loadingPhase = true, warmFrames = 0; var WARM_TARGET = 60;
       var idx = 0, sceneT = 0, styleTimer = 0;
 
@@ -101,17 +104,34 @@
 
       // ---- the stylizer: resample the colour buffer as ASCII / dots / pixels ----
       function renderToScreen() {
-        var px = buf.pixels, gg = p.max(4, p.round(grid)), asciiG = p.max(gg, 6);
+        var px = buf.pixels, gg = p.max(3, p.round(grid)), asciiG = p.max(gg, 5);
         var scaleF = p.min(p.width / BUF_W, p.height / BUF_H) * 0.85, invScale = 1 / scaleF;
         var renderW = BUF_W * scaleF, renderH = BUF_H * scaleF;
         var ox = (p.width - renderW) / 2 + mInfX, oy = (p.height - renderH) / 2 + mInfY;
         var curM = renderMode, prevM = prevMode, mt = modeT, transitionDone = mt >= 0.99;
-        var useNative = (curM === 0) || (!transitionDone && prevM === 0);
-        if (useNative) { ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; }
-        var gEff = (curM === 0 && transitionDone) ? asciiG : gg, halfG = gEff * 0.5;
+        // ASCII is "involved" whenever it's the current mode OR we're still
+        // mid-dissolve out of it. We treat the entire ASCII-involved window
+        // with the LARGER ascii grid (asciiG) — otherwise the dissolve frame
+        // tries to render thousands of fillText() calls at the dense gg grid
+        // (which was the source of the post-ASCII frame-rate cliff).
+        var asciiInvolved = (curM === 0) || (!transitionDone && prevM === 0);
+        if (asciiInvolved) { ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; }
+        var gEff = asciiInvolved ? asciiG : gg, halfG = gEff * 0.5;
         var yStart = p.max(0, p.floor(oy / gEff) * gEff), yEnd = p.min(p.height, oy + renderH);
         var xStart = p.max(0, p.floor(ox / gEff) * gEff), xEnd = p.min(p.width, ox + renderW);
-        var asciiSize = gEff * 1.1, lastFontStr = '';
+        // ASCII font size: tighter brightness range (0.85..1.15) so cells stay
+        // close to a constant visual weight; the chars themselves carry the
+        // density signal (sparse '.' for dark, dense '@' for bright).
+        var asciiBase = gEff * 1.35, lastFontStr = '';
+        var charsN = chars.length;
+        // Drawing the dots/pixels via raw ctx (fillRect + arc) is materially
+        // faster than going through p.fill / p.ellipse / p.rect; with ~30–50k
+        // cells per frame at the dense grid, the p5 wrapper overhead alone was
+        // adding multiple ms per frame.
+        var pixSide = gEff * 0.93;
+        var pixHalf = pixSide * 0.5;
+        var TWO_PI = Math.PI * 2;
+        var lastFill = '';
         for (var sy = yStart; sy < yEnd; sy += gEff) {
           var byBase = p.floor((sy - oy) * invScale); if (byBase < 0 || byBase >= BUF_H) continue;
           var rowOff = byBase * BUF_W;
@@ -121,14 +141,24 @@
             if ((r + gr + b) < 12) continue;
             var bright = r * 0.299 + gr * 0.587 + b * 0.114, cxp = sx + halfG, cyp = sy + halfG, mode;
             if (transitionDone) mode = curM; else { var hash = ((sx * 73 + sy * 137) & 0xFF) * 0.00392; mode = hash < mt ? curM : prevM; }
+            var fill = 'rgb(' + r + ',' + gr + ',' + b + ')';
+            if (fill !== lastFill) { ctx.fillStyle = fill; lastFill = fill; }
             if (mode === 0) {
-              var fontSz = p.floor(asciiSize * (0.4 + bright * 0.004)), fontStr = fontSz + 'px Courier New';
+              var b01 = bright * 0.00392;
+              var fontSz = p.floor(asciiBase * (0.85 + b01 * 0.30)), fontStr = fontSz + 'px Courier New';
               if (fontStr !== lastFontStr) { ctx.font = fontStr; lastFontStr = fontStr; }
-              ctx.fillStyle = 'rgb(' + r + ',' + gr + ',' + b + ')';
-              var ci = ((bright >> 2) + ((sx * 7 + sy * 13) >> 3)) % chars.length;
+              // brightness-driven char (density-ordered), ±1 position nudge for variety
+              var ci = p.floor(b01 * (charsN - 1)) + (((sx * 7 + sy * 13) & 1));
+              if (ci < 0) ci = 0; else if (ci >= charsN) ci = charsN - 1;
               ctx.fillText(chars[ci], cxp, cyp);
-            } else if (mode === 1) { p.fill(r, gr, b); var d = gEff * (0.1 + bright * 0.0033); p.ellipse(cxp, cyp, d, d); }
-            else { p.fill(r, gr, b); p.rectMode(p.CENTER); p.rect(cxp, cyp, gEff * 0.93, gEff * 0.93); }
+            } else if (mode === 1) {
+              var d = gEff * (0.25 + bright * 0.0030);
+              ctx.beginPath();
+              ctx.arc(cxp, cyp, d * 0.5, 0, TWO_PI);
+              ctx.fill();
+            } else {
+              ctx.fillRect(cxp - pixHalf, cyp - pixHalf, pixSide, pixSide);
+            }
           }
         }
       }
@@ -160,14 +190,17 @@
         }
         p.background(0); t += 0.016; sceneT += dt;
         var dur = scenes[idx].dur || 12;
+        // Scene-loop wrap = scene flip → keep glitch + dissolve.
         if (sceneT >= dur) { sceneT -= dur; advanceStyle(true); }
         var u = sceneT / dur;
-        styleTimer += dt; if (styleTimer > STYLE_INTERVAL) { styleTimer = 0; advanceStyle(p.random() < 0.5); }
+        // Style timer = dissolve only (no glitch).
+        styleTimer += dt; if (styleTimer > STYLE_INTERVAL) { styleTimer = 0; advanceStyle(false); }
         grid += (gridTarget - grid) * 0.05; modeT = p.min(1, modeT + dt * 3.0);
         mInfX = Math.sin(t * 0.13) * 8; mInfY = Math.cos(t * 0.11) * 6;
         updateGlitch(dt);
         scenes[idx].draw(D, BUF_W, BUF_H, u, t); buf.loadPixels();
-        glitchTimer -= dt; if (glitchTimer <= 0 && !glitchActive) { glitchTimer = p.random(3, 7); if (p.random() < 0.30) triggerGlitch(); }
+        // (Ambient random glitches removed — glitches now only fire on scene
+        // flip and manual G key, not on the style timer or a background roll.)
         renderToScreen(); drawGlitchOverlay(); drawHUD();
       };
 
@@ -177,7 +210,6 @@
         else if (p.key === 'f' || p.key === 'F') { var fs = p.fullscreen(); p.fullscreen(!fs); }
         else if (p.key === 'g' || p.key === 'G') triggerGlitch();
       };
-      p.mousePressed = function () { if (!loadingPhase) triggerGlitch(); };
       p.windowResized = function () { p.resizeCanvas(p.windowWidth, p.windowHeight); };
     };
 

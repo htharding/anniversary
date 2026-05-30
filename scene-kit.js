@@ -69,6 +69,103 @@
     };
   };
 
+  /* ---- polygons & lines --------------------------------------------------*
+   * Ear-clipping triangulation + line stroke — for filled organic/concave
+   * shapes (a hand, a leaf, a coastline) and simple strokes (a kite string,
+   * a road, a state border) that the 5 base primitives don't cover directly.
+   * Triangulate once at module load for static shapes, replay each frame.
+   * --------------------------------------------------------------------------*/
+
+  // Triangulate a simple polygon. Returns [[i,j,k], ...] index triples into
+  // `verts`. Handles arbitrary concavity (peninsulas, indents, mittens).
+  // Polygon may be specified in either winding; the algorithm detects it.
+  SK.triangulate = function (verts) {
+    var n = verts.length;
+    if (n < 3) return [];
+    var area2 = 0;
+    for (var s = 0; s < n; s++) {
+      var p = verts[s], q = verts[(s + 1) % n];
+      area2 += p[0] * q[1] - q[0] * p[1];
+    }
+    // y-down screen coords: clockwise polygon has area > 0
+    var clockwise = area2 > 0;
+    function cross(a, b, c) {
+      return (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
+    }
+    function isConvex(a, b, c) {
+      var z = cross(a, b, c);
+      return clockwise ? z > 0 : z < 0;
+    }
+    function pointInTri(p, a, b, c) {
+      var d1 = cross(a, b, p), d2 = cross(b, c, p), d3 = cross(c, a, p);
+      var hasPos = (d1 > 0) || (d2 > 0) || (d3 > 0);
+      var hasNeg = (d1 < 0) || (d2 < 0) || (d3 < 0);
+      return !(hasPos && hasNeg);
+    }
+    var idx = [];
+    for (var k = 0; k < n; k++) idx.push(k);
+    var tris = [], guard = n * 3;
+    while (idx.length > 3 && guard-- > 0) {
+      var found = false;
+      for (var i = 0; i < idx.length; i++) {
+        var prev = (i - 1 + idx.length) % idx.length;
+        var next = (i + 1) % idx.length;
+        var a = verts[idx[prev]], b = verts[idx[i]], c = verts[idx[next]];
+        if (!isConvex(a, b, c)) continue;
+        var hasInside = false;
+        for (var j = 0; j < idx.length; j++) {
+          if (j === prev || j === i || j === next) continue;
+          if (pointInTri(verts[idx[j]], a, b, c)) { hasInside = true; break; }
+        }
+        if (!hasInside) {
+          tris.push([idx[prev], idx[i], idx[next]]);
+          idx.splice(i, 1);
+          found = true;
+          break;
+        }
+      }
+      if (!found) break;
+    }
+    if (idx.length === 3) tris.push([idx[0], idx[1], idx[2]]);
+    return tris;
+  };
+
+  // Fill a triangulated polygon. `pts` are in absolute buffer coords; `tris`
+  // is the result of SK.triangulate(pts). Cache `tris` for static shapes.
+  SK.fillPoly = function (D, pts, tris, col, a) {
+    a = a == null ? 1 : a;
+    for (var t = 0; t < tris.length; t++) {
+      var tr = tris[t], p0 = pts[tr[0]], p1 = pts[tr[1]], p2 = pts[tr[2]];
+      D.tri(p0[0], p0[1], p1[0], p1[1], p2[0], p2[1], col[0], col[1], col[2], a);
+    }
+  };
+
+  // Stroke a straight line segment. Implemented as a rotated thin ellipse,
+  // since the D adapter has no native stroke primitive. `thick` is in buffer
+  // pixels (typically 0.6..2 * sc).
+  SK.line = function (D, x1, y1, x2, y2, col, thick, a) {
+    var dx = x2 - x1, dy = y2 - y1;
+    var len = Math.sqrt(dx * dx + dy * dy);
+    if (len < 1) return;
+    a = a == null ? 1 : a;
+    D.ellipse((x1 + x2) / 2, (y1 + y2) / 2, len / 2 + thick * 0.5, thick * 0.5,
+              Math.atan2(dy, dx), col[0], col[1], col[2], a);
+  };
+
+  // Stroked arc as a polyline of line segments. a0/a1 in radians (clockwise +).
+  // `thick` in buffer px. Useful for roller coaster loops, ferris wheels, halos.
+  SK.arc = function (D, cx, cy, r, a0, a1, thick, col, a, segs) {
+    a = a == null ? 1 : a;
+    segs = segs || Math.max(8, Math.floor(Math.abs(a1 - a0) * r / 3));
+    var px = cx + Math.cos(a0) * r, py = cy + Math.sin(a0) * r;
+    for (var i = 1; i <= segs; i++) {
+      var ang = a0 + (a1 - a0) * (i / segs);
+      var nx = cx + Math.cos(ang) * r, ny = cy + Math.sin(ang) * r;
+      SK.line(D, px, py, nx, ny, col, thick, a);
+      px = nx; py = ny;
+    }
+  };
+
   /* ---- backgrounds & atmosphere -----------------------------------------*/
 
   // Vertical multi-stop gradient from y=0 to y=yEnd. stops: [[pos0..1,[r,g,b]],...]
@@ -145,6 +242,97 @@
   SK.ridgeFrac = function (D, ptsFrac, W, baseY, col, a) {
     var abs = ptsFrac.map(function (q) { return [q[0] * W, q[1] * baseY]; });
     SK.ridge(D, abs, baseY, col, a);
+  };
+
+  /* ---- icons -------------------------------------------------------------*/
+
+  // Simple filled heart at (x,y), total size in buffer px (~width).
+  // Built from two lobes + a triangle so the silhouette reads through the styliser.
+  SK.heart = function (D, x, y, size, col, a) {
+    a = a == null ? 1 : a;
+    var s = size;
+    D.disc(x - s * 0.27, y - s * 0.15, s * 0.32, col[0], col[1], col[2], a);
+    D.disc(x + s * 0.27, y - s * 0.15, s * 0.32, col[0], col[1], col[2], a);
+    D.tri(x - s * 0.55, y - s * 0.04, x + s * 0.55, y - s * 0.04, x, y + s * 0.55, col[0], col[1], col[2], a);
+  };
+
+  /* ---- text (5x7 bitmap font) -------------------------------------------*
+   * SK.text(D, x, y, str, px, col, a) draws ASCII text. `px` is the size of
+   * one bitmap "pixel" in buffer pixels — each glyph is 5*px wide, 7*px tall,
+   * with 1*px horizontal spacing (6*px advance). `x,y` is the top-left of the
+   * FIRST glyph. Uppercase only; lowercase is coerced. Supported:
+   * A-Z, 0-9, space, . , ? ! ' - :  (extend as needed).
+   * --------------------------------------------------------------------------*/
+  SK._font = {
+    'A': [0x0E,0x11,0x11,0x1F,0x11,0x11,0x11],
+    'B': [0x1E,0x11,0x11,0x1E,0x11,0x11,0x1E],
+    'C': [0x0F,0x10,0x10,0x10,0x10,0x10,0x0F],
+    'D': [0x1E,0x11,0x11,0x11,0x11,0x11,0x1E],
+    'E': [0x1F,0x10,0x10,0x1E,0x10,0x10,0x1F],
+    'F': [0x1F,0x10,0x10,0x1E,0x10,0x10,0x10],
+    'G': [0x0F,0x10,0x10,0x13,0x11,0x11,0x0E],
+    'H': [0x11,0x11,0x11,0x1F,0x11,0x11,0x11],
+    'I': [0x0E,0x04,0x04,0x04,0x04,0x04,0x0E],
+    'J': [0x07,0x02,0x02,0x02,0x02,0x12,0x0C],
+    'K': [0x11,0x12,0x14,0x18,0x14,0x12,0x11],
+    'L': [0x10,0x10,0x10,0x10,0x10,0x10,0x1F],
+    'M': [0x11,0x1B,0x15,0x15,0x11,0x11,0x11],
+    'N': [0x11,0x11,0x19,0x15,0x13,0x11,0x11],
+    'O': [0x0E,0x11,0x11,0x11,0x11,0x11,0x0E],
+    'P': [0x1E,0x11,0x11,0x1E,0x10,0x10,0x10],
+    'Q': [0x0E,0x11,0x11,0x11,0x15,0x12,0x0D],
+    'R': [0x1E,0x11,0x11,0x1E,0x14,0x12,0x11],
+    'S': [0x0F,0x10,0x10,0x0E,0x01,0x01,0x1E],
+    'T': [0x1F,0x04,0x04,0x04,0x04,0x04,0x04],
+    'U': [0x11,0x11,0x11,0x11,0x11,0x11,0x0E],
+    'V': [0x11,0x11,0x11,0x11,0x11,0x0A,0x04],
+    'W': [0x11,0x11,0x15,0x15,0x15,0x1B,0x11],
+    'X': [0x11,0x11,0x0A,0x04,0x0A,0x11,0x11],
+    'Y': [0x11,0x11,0x0A,0x04,0x04,0x04,0x04],
+    'Z': [0x1F,0x01,0x02,0x04,0x08,0x10,0x1F],
+    '0': [0x0E,0x11,0x13,0x15,0x19,0x11,0x0E],
+    '1': [0x04,0x0C,0x04,0x04,0x04,0x04,0x0E],
+    '2': [0x0E,0x11,0x01,0x06,0x08,0x10,0x1F],
+    '3': [0x1F,0x01,0x02,0x06,0x01,0x11,0x0E],
+    '4': [0x02,0x06,0x0A,0x12,0x1F,0x02,0x02],
+    '5': [0x1F,0x10,0x1E,0x01,0x01,0x11,0x0E],
+    '6': [0x06,0x08,0x10,0x1E,0x11,0x11,0x0E],
+    '7': [0x1F,0x01,0x02,0x04,0x08,0x08,0x08],
+    '8': [0x0E,0x11,0x11,0x0E,0x11,0x11,0x0E],
+    '9': [0x0E,0x11,0x11,0x0F,0x01,0x02,0x0C],
+    '.': [0x00,0x00,0x00,0x00,0x00,0x06,0x06],
+    ',': [0x00,0x00,0x00,0x00,0x06,0x06,0x04],
+    '?': [0x0E,0x11,0x01,0x02,0x04,0x00,0x04],
+    '!': [0x04,0x04,0x04,0x04,0x04,0x00,0x04],
+    "'": [0x04,0x04,0x00,0x00,0x00,0x00,0x00],
+    '-': [0x00,0x00,0x00,0x1F,0x00,0x00,0x00],
+    ':': [0x00,0x06,0x06,0x00,0x06,0x06,0x00],
+    ' ': [0,0,0,0,0,0,0]
+  };
+
+  SK.text = function (D, x, y, str, px, col, a) {
+    a = a == null ? 1 : a;
+    px = px || 4;
+    var cx = x;
+    for (var i = 0; i < str.length; i++) {
+      var ch = str.charAt(i).toUpperCase();
+      var g = SK._font[ch] || SK._font[' '];
+      for (var row = 0; row < 7; row++) {
+        var bits = g[row];
+        for (var c = 0; c < 5; c++) {
+          if (bits & (1 << (4 - c))) {
+            D.rect(cx + c * px, y + row * px, px, px, col[0], col[1], col[2], a);
+          }
+        }
+      }
+      cx += 6 * px;
+    }
+  };
+
+  // Width (in buffer px) of `str` rendered at `px`. Use to center text.
+  SK.textWidth = function (str, px) {
+    px = px || 4;
+    return Math.max(0, str.length * 6 * px - px);
   };
 
   /* ---- perspective markings ---------------------------------------------*/

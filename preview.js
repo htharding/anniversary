@@ -2,9 +2,11 @@
  * preview.js  —  headless validation tool (Node)
  *
  * Renders any registered scene without a browser, two ways:
- *   • raw 3-up  : the colour buffer at u = .15 / .5 / .85 (check composition+motion)
- *   • styled 2-up: the calla DOTS and PIXELS passes at u = .85 (check the look)
- * (The ASCII text pass needs a real canvas; dots/pixels are representative.)
+ *   • raw 3-up   : the colour buffer at u = .15 / .5 / .85 (composition + motion)
+ *   • styled 3-up: the calla DOTS, PIXELS and ASCII passes at u = .85 (the look).
+ *                  ASCII is approximated by stamping the SK 5x7 bitmap font for
+ *                  each cell — close enough to the browser's real-text pass to
+ *                  validate legibility without opening the engine.
  *
  * Usage:
  *   node preview.js            # render every scene
@@ -12,6 +14,7 @@
  * ==========================================================================*/
 var zlib = require('zlib'), fs = require('fs');
 var SCENES = require('./scenes.js');
+var SK = require('./scene-kit.js');
 
 /* ---- D adapter over an RGB byte buffer (matches the D contract) ----------*/
 function makeD(fb, S) {
@@ -35,8 +38,53 @@ function stylise(src, S, gEff, mode, out) {
     var idx = (sy * S + sx) * 3, r = src[idx], g = src[idx + 1], b = src[idx + 2];
     if (r + g + b < 12) continue;
     var bright = r * 0.299 + g * 0.587 + b * 0.114, cx = sx + half, cy = sy + half;
-    if (mode === 1) { var d = gEff * (0.1 + bright * 0.0033); setDisc(cx, cy, d / 2, r, g, b); }
+    if (mode === 1) { var d = gEff * (0.25 + bright * 0.0030); setDisc(cx, cy, d / 2, r, g, b); }
     else setRect(cx, cy, gEff * 0.93, r, g, b);
+  }
+}
+
+/* ---- ASCII pass: stamp SK._font glyphs density-ordered by brightness ------*
+ * The engine uses native canvas text; here we approximate by drawing the
+ * SK 5x7 bitmap for the chosen glyph. Chars are ordered sparse→dense so
+ * brightness maps to ink coverage (dark cells → '.', bright cells → 'M').
+ * Only chars present in SK._font are used.                                   */
+function styliseAscii(src, S, gEff, out) {
+  for (var i = 0; i < S * S * 3; i++) out[i] = 0;
+  var chars = " .,:-IJLO0BM".split('');
+  var charsN = chars.length;
+  // Glyph footprint scales with the cell, but always >= 1 buffer-pixel per
+  // bitmap pixel so glyphs are at least faintly visible.
+  var pxSize = Math.max(1, Math.floor(gEff / 6));
+  var charW = 5 * pxSize, charH = 7 * pxSize;
+  for (var sy = 0; sy < S; sy += gEff) {
+    for (var sx = 0; sx < S; sx += gEff) {
+      var idx = (sy * S + sx) * 3;
+      var r = src[idx], g = src[idx + 1], b = src[idx + 2];
+      if (r + g + b < 12) continue;
+      var bright = r * 0.299 + g * 0.587 + b * 0.114;
+      var b01 = bright / 255;
+      var ci = Math.floor(b01 * (charsN - 1)) + (((sx * 7 + sy * 13) & 1));
+      if (ci < 0) ci = 0; else if (ci >= charsN) ci = charsN - 1;
+      var ch = chars[ci];
+      var glyph = SK._font[ch] || SK._font[' '];
+      var ox = sx + Math.floor((gEff - charW) / 2);
+      var oy = sy + Math.floor((gEff - charH) / 2);
+      for (var row = 0; row < 7; row++) {
+        var bits = glyph[row];
+        for (var c = 0; c < 5; c++) {
+          if (!(bits & (1 << (4 - c)))) continue;
+          var px0 = ox + c * pxSize, py0 = oy + row * pxSize;
+          for (var py = 0; py < pxSize; py++) {
+            var yy = py0 + py; if (yy < 0 || yy >= S) continue;
+            for (var px = 0; px < pxSize; px++) {
+              var xx = px0 + px; if (xx < 0 || xx >= S) continue;
+              var oi = (yy * S + xx) * 3;
+              out[oi] = r; out[oi + 1] = g; out[oi + 2] = b;
+            }
+          }
+        }
+      }
+    }
   }
 }
 
@@ -61,11 +109,17 @@ if (!list.length) { console.log('no scene matched "' + only + '". ids:', SCENES.
 
 list.forEach(function (sc) {
   writePNG(row([frame(sc, 0.15), frame(sc, 0.5), frame(sc, 0.85)], 3), 3 * S, S, 'preview_' + sc.id + '_raw.png');
-  var base = frame(sc, 0.85), dots = new Uint8Array(S * S * 3), pix = new Uint8Array(S * S * 3);
-  stylise(base, S, 7, 1, dots); stylise(base, S, 6, 2, pix);
-  writePNG(row([dots, pix], 2), 2 * S, S, 'preview_' + sc.id + '_styled.png');
+  var base = frame(sc, 0.85);
+  var dots = new Uint8Array(S * S * 3), pix = new Uint8Array(S * S * 3), asc = new Uint8Array(S * S * 3);
+  stylise(base, S, 5, 1, dots);
+  stylise(base, S, 4, 2, pix);
+  styliseAscii(base, S, 5, asc);
+  writePNG(row([dots, pix, asc], 3), 3 * S, S, 'preview_' + sc.id + '_styled.png');
   console.log('rendered', sc.id, '-> preview_' + sc.id + '_raw.png, preview_' + sc.id + '_styled.png');
 });
-// quick gallery: one mid-frame per scene in a row
-writePNG(row(SCENES.map(function (s) { return frame(s, 0.5); }), SCENES.length), SCENES.length * S, S, 'preview_gallery.png');
-console.log('gallery -> preview_gallery.png');
+// quick gallery: one mid-frame per scene in a row (skipped in single-scene mode
+// so parallel scene authors don't race on the gallery file).
+if (!only) {
+  writePNG(row(SCENES.map(function (s) { return frame(s, 0.5); }), SCENES.length), SCENES.length * S, S, 'preview_gallery.png');
+  console.log('gallery -> preview_gallery.png');
+}

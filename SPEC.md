@@ -151,6 +151,20 @@ SK.pen(x,y,ang,scl,dir=1) -> P(lx,ly)
    // local points and map them with P(...), then draw with D.tri / D.ellipse.
 ```
 
+**Polygons & lines** (for concave fills and stroked segments the 5 base primitives don't cover)
+```
+SK.triangulate(pts) -> tris                    // ear clipping for any SIMPLE polygon
+   // pts = [[x,y], ...]; returns [[i,j,k], ...] index triples into pts.
+   // Handles arbitrary concavity (peninsulas, mittens, indents). Call ONCE
+   // at module load for static shapes and cache the result.
+
+SK.fillPoly(D, ptsAbs, tris, col, a=1)         // fill a triangulated polygon
+   // ptsAbs are in absolute buffer coords; tris is the SK.triangulate output.
+
+SK.line(D, x1,y1, x2,y2, col, thick, a=1)      // strokes a straight segment
+   // implemented as a rotated thin ellipse; thick is in buffer px (~0.6..2 * sc).
+```
+
 **Backgrounds & atmosphere**
 ```
 SK.vGradient(D, W, yEnd, stops, step)
@@ -296,8 +310,9 @@ gallery. This is exactly how the airport scene was tuned.
   the same folder. They're classic `<script src>` (intentionally **not** ES
   modules, which `file://` blocks).
 - **Performance.** Cost scales with `680/grid` cells; the engine breathes grid
-  4–14. Heavy scenes (hundreds of discs/frame) are fine, but avoid per-pixel
-  loops in a scene — use the primitives.
+  3–6 (dots/pixels) and 5–6 (ASCII, which is clamped slightly larger for
+  legibility). Heavy scenes (hundreds of discs/frame) are fine, but avoid
+  per-pixel loops in a scene — use the primitives.
 
 ---
 

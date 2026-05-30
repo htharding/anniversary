@@ -20,11 +20,27 @@
   'use strict';
 
   var MANIFEST = [
-    'placeholder'
+    'takeoff',
+    'map',
+    'dating',
+    'market',
+    'tacoma',
+    'coaster',
+    'love-her',
+    'camping',
+    'snowboard',
+    'run',
+    'love-me',
+    'continued'
   ];
 
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = MANIFEST.map(function (id) { return require('./scenes/' + id + '.js'); });
+    // Tolerate missing / broken scenes so parallel authoring can validate
+    // individual scenes before every manifest entry exists on disk.
+    module.exports = MANIFEST.map(function (id) {
+      try { return require('./scenes/' + id + '.js'); }
+      catch (e) { console.warn('[scenes] skipped', id, '-', e.message); return null; }
+    }).filter(Boolean);
     return;
   }
 
