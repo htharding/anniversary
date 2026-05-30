@@ -328,20 +328,21 @@
 
     /* 10. ANIMALS — foreground, the largest brightest figures ------------*/
     // Bounce/twitch derived from t. Cat does a jump arc around u in [0.55, 0.72].
-    var animalScl = 2.0 * sc;       // bumped — animals are foreground/close to camera
-    var groundY = 0.88 * H;          // slight drop to fit larger silhouettes
+    var dogScl = 4.0 * sc;           // dogs are big foreground subjects (2× the cat)
+    var catScl = 2.0 * sc;           // cat remains smaller — sits in mid-foreground
+    var groundY = 0.86 * H;          // moved up slightly so the larger dogs fit
 
     // brown dog (left)
     var bdBob = Math.sin(t * 4.0) * 1.6 * sc;
     var bdTail = Math.sin(t * 8.0) * 0.5;
     var bdEar = Math.sin(t * 3.5 + 1.2) * 0.15;
-    brownDog(D, 0.22 * W, groundY, animalScl, bdBob, bdTail, bdEar);
+    brownDog(D, 0.22 * W, groundY, dogScl, bdBob, bdTail, bdEar);
 
     // black dog (center)
     var kdBob = Math.sin(t * 4.4 + 1.0) * 1.8 * sc;
     var kdTail = Math.sin(t * 9.0 + 0.7) * 0.6;
     var kdEar = Math.sin(t * 4.0 + 0.4) * 0.3;
-    blackDog(D, 0.48 * W, groundY, animalScl, kdBob, kdTail, kdEar);
+    blackDog(D, 0.48 * W, groundY, dogScl, kdBob, kdTail, kdEar);
 
     // gray cat (right) — does a little jump arc once per loop
     var jumpStart = 0.55, jumpEnd = 0.72;
@@ -354,7 +355,7 @@
     var catBob = Math.sin(t * 5.0 + 2.0) * 1.2 * sc;
     var catTail = Math.sin(t * 3.0) * 0.5;
     var catEar = Math.sin(t * 4.5 + 0.8) * 0.2;
-    grayCat(D, 0.74 * W, groundY + jumpY, animalScl, catBob, catTail, catEar);
+    grayCat(D, 0.74 * W, groundY + jumpY, catScl, catBob, catTail, catEar);
 
     /* 11. Subtle warm light wash near horizon (golden hour vibe) ---------*/
     D.rect(0, horizonY - 0.015 * H, W, 0.06 * H, 255, 220, 180, 0.10);
