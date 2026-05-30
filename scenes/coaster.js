@@ -33,10 +33,12 @@
    * ----------------------------------------------------------------------*/
   var yBase = 0.78;        // horizontal base track line (frac of H)
 
-  // Loop A (large, right of centre)
-  var cAx = 0.58, cAy = 0.48, rA = 0.17;
-  // Loop B (smaller, left of centre — intersects Loop A)
-  var cBx = 0.36, cBy = 0.54, rB = 0.13;
+  // Loop A (large, right of centre) — centre placed so loop bottom tangents yBase
+  var rA = 0.17;
+  var cAx = 0.58, cAy = yBase - rA;
+  // Loop B (smaller, left of centre — intersects Loop A) — same tangent rule
+  var rB = 0.13;
+  var cBx = 0.36, cBy = yBase - rB;
   // Entry hill (left) and exit hill (right) — modest arcs
   var hillL = { cx: 0.12, r: 0.10 };
   var hillR = { cx: 0.90, r: 0.08 };
@@ -92,11 +94,12 @@
       ang = 0;
     } else if (s < 0.88) {
       // Loop A — covers u≈0.52..0.88 (catches u=0.85 mid-loop)
+      // counter-clockwise (matches Loop B) so cart keeps moving rightward at bottom
       var k5 = (s - 0.52) / 0.36;
-      var thetaA = thetaA_start + 2 * Math.PI * k5;
+      var thetaA = thetaA_start - 2 * Math.PI * k5;
       x = cAx + rA * Math.cos(thetaA);
       y = cAy + rA * Math.sin(thetaA);
-      ang = Math.atan2(Math.cos(thetaA), -Math.sin(thetaA));
+      ang = Math.atan2(-Math.cos(thetaA), Math.sin(thetaA));
     } else if (s < 0.95) {
       // exit run from loop A base toward the exit hill base
       var k6 = (s - 0.88) / 0.07;

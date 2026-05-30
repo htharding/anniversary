@@ -146,22 +146,22 @@
     var headR = 56 * sc;
     var headY = cy;                       // head centre
     var neckTop = headY + headR * 0.78;   // just below jaw
-    var shoulderY = headY + headR * 1.55; // top of shoulder mass
-    var shW = headR * 4.2;
+    var shoulderY = headY + headR * 1.95; // top of shoulder mass (dropped so chin reads)
+    var shW = headR * 3.1;                // slim torso (was 4.2 — looked overweight)
     var shH = headR * 3.6;
 
     // ---- Shoulders / torso (drawn first; head will overlap) --------------
-    // Wide rounded shoulder ellipse (the top of the body)
+    // Narrow rounded shoulder ellipse (the top of the body)
     D.ellipse(cx, shoulderY + headR * 0.10,
-              shW * 0.55, shH * 0.42, 0,
+              shW * 0.55, shH * 0.26, 0,
               shirtCol[0], shirtCol[1], shirtCol[2], 1);
     // chest rectangle fills to the bottom of the frame
     D.rect(cx - shW * 0.55, shoulderY, shW * 1.10, shH * 2.5,
            shirtCol[0], shirtCol[1], shirtCol[2], 1);
     // collar V-notch hint (a small darker triangle at the neck base)
-    D.tri(cx - headR * 0.34, neckTop + headR * 0.18,
-          cx + headR * 0.34, neckTop + headR * 0.18,
-          cx, neckTop + headR * 0.85,
+    D.tri(cx - headR * 0.26, neckTop + headR * 0.50,
+          cx + headR * 0.26, neckTop + headR * 0.50,
+          cx, neckTop + headR * 1.20,
           shirtShCol[0], shirtShCol[1], shirtShCol[2], 0.85);
 
     // ---- Back hair mass (woman only) -- BEHIND head ---------------------
@@ -182,8 +182,8 @@
     }
 
     // ---- Neck (skin rect from chin to shoulder top) ----------------------
-    D.rect(cx - headR * 0.30, neckTop,
-           headR * 0.60, headR * 0.85,
+    D.rect(cx - headR * 0.22, neckTop,
+           headR * 0.44, headR * 1.25,
            SKIN_SH[0], SKIN_SH[1], SKIN_SH[2], 1);
 
     // ---- Head (skin disc) ------------------------------------------------

@@ -102,65 +102,139 @@
         }
       }
 
+      // ---- persistent ImageData buffer for the fast dots/pixels path -----
+      // We write straight into this typed array (4 bytes per pixel) and push
+      // it to the canvas with a single putImageData per frame. Bypassing the
+      // canvas2d per-cell API is the difference between ~5fps and 30+fps at
+      // the dense breathing grid.
+      var pixelBuf = null, pbW = 0, pbH = 0, pixelData32 = null;
+      function ensurePixelBuf() {
+        if (pixelBuf && pbW === p.width && pbH === p.height) return;
+        pixelBuf = ctx.createImageData(p.width, p.height);
+        pbW = p.width; pbH = p.height;
+        pixelData32 = new Uint32Array(pixelBuf.data.buffer);
+      }
+
       // ---- the stylizer: resample the colour buffer as ASCII / dots / pixels ----
       function renderToScreen() {
-        var px = buf.pixels, gg = p.max(3, p.round(grid)), asciiG = p.max(gg, 5);
+        var px = buf.pixels, gg = p.max(3, p.round(grid)), asciiG = p.max(gg, 7);
         var scaleF = p.min(p.width / BUF_W, p.height / BUF_H) * 0.85, invScale = 1 / scaleF;
         var renderW = BUF_W * scaleF, renderH = BUF_H * scaleF;
         var ox = (p.width - renderW) / 2 + mInfX, oy = (p.height - renderH) / 2 + mInfY;
         var curM = renderMode, prevM = prevMode, mt = modeT, transitionDone = mt >= 0.99;
         // ASCII is "involved" whenever it's the current mode OR we're still
-        // mid-dissolve out of it. We treat the entire ASCII-involved window
-        // with the LARGER ascii grid (asciiG) — otherwise the dissolve frame
-        // tries to render thousands of fillText() calls at the dense gg grid
-        // (which was the source of the post-ASCII frame-rate cliff).
+        // mid-dissolve out of it. ASCII-involved frames take the canvas API
+        // path (fillText needs the canvas2d text engine); everything else
+        // takes the fast direct-pixel path below.
         var asciiInvolved = (curM === 0) || (!transitionDone && prevM === 0);
-        if (asciiInvolved) { ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; }
-        var gEff = asciiInvolved ? asciiG : gg, halfG = gEff * 0.5;
-        var yStart = p.max(0, p.floor(oy / gEff) * gEff), yEnd = p.min(p.height, oy + renderH);
-        var xStart = p.max(0, p.floor(ox / gEff) * gEff), xEnd = p.min(p.width, ox + renderW);
-        // ASCII font size: tighter brightness range (0.85..1.15) so cells stay
-        // close to a constant visual weight; the chars themselves carry the
-        // density signal (sparse '.' for dark, dense '@' for bright).
-        var asciiBase = gEff * 1.35, lastFontStr = '';
-        var charsN = chars.length;
-        // Drawing the dots/pixels via raw ctx (fillRect + arc) is materially
-        // faster than going through p.fill / p.ellipse / p.rect; with ~30–50k
-        // cells per frame at the dense grid, the p5 wrapper overhead alone was
-        // adding multiple ms per frame.
-        var pixSide = gEff * 0.93;
-        var pixHalf = pixSide * 0.5;
-        var TWO_PI = Math.PI * 2;
-        var lastFill = '';
-        for (var sy = yStart; sy < yEnd; sy += gEff) {
-          var byBase = p.floor((sy - oy) * invScale); if (byBase < 0 || byBase >= BUF_H) continue;
-          var rowOff = byBase * BUF_W;
-          for (var sx = xStart; sx < xEnd; sx += gEff) {
-            var bx = p.floor((sx - ox) * invScale); if (bx < 0 || bx >= BUF_W) continue;
-            var i4 = (rowOff + bx) * 4, r = px[i4], gr = px[i4 + 1], b = px[i4 + 2];
-            if ((r + gr + b) < 12) continue;
-            var bright = r * 0.299 + gr * 0.587 + b * 0.114, cxp = sx + halfG, cyp = sy + halfG, mode;
-            if (transitionDone) mode = curM; else { var hash = ((sx * 73 + sy * 137) & 0xFF) * 0.00392; mode = hash < mt ? curM : prevM; }
-            var fill = 'rgb(' + r + ',' + gr + ',' + b + ')';
-            if (fill !== lastFill) { ctx.fillStyle = fill; lastFill = fill; }
-            if (mode === 0) {
-              var b01 = bright * 0.00392;
-              var fontSz = p.floor(asciiBase * (0.85 + b01 * 0.30)), fontStr = fontSz + 'px Courier New';
-              if (fontStr !== lastFontStr) { ctx.font = fontStr; lastFontStr = fontStr; }
-              // brightness-driven char (density-ordered), ±1 position nudge for variety
-              var ci = p.floor(b01 * (charsN - 1)) + (((sx * 7 + sy * 13) & 1));
-              if (ci < 0) ci = 0; else if (ci >= charsN) ci = charsN - 1;
-              ctx.fillText(chars[ci], cxp, cyp);
-            } else if (mode === 1) {
-              var d = gEff * (0.25 + bright * 0.0030);
-              ctx.beginPath();
-              ctx.arc(cxp, cyp, d * 0.5, 0, TWO_PI);
-              ctx.fill();
+
+        if (asciiInvolved) {
+          /* --------------- ASCII path (canvas API) --------------------- */
+          ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          var gEff = asciiG, halfG = gEff * 0.5;
+          var yStart = p.max(0, p.floor(oy / gEff) * gEff), yEnd = p.min(p.height, oy + renderH);
+          var xStart = p.max(0, p.floor(ox / gEff) * gEff), xEnd = p.min(p.width, ox + renderW);
+          var asciiBase = gEff * 1.35, lastFontStr = '';
+          var charsN = chars.length;
+          var pixSide = gEff * 0.93, pixHalf = pixSide * 0.5;
+          var TWO_PI = Math.PI * 2;
+          var lastRgbKey = -1;
+          for (var sy = yStart; sy < yEnd; sy += gEff) {
+            var byBase = p.floor((sy - oy) * invScale); if (byBase < 0 || byBase >= BUF_H) continue;
+            var rowOff = byBase * BUF_W;
+            for (var sx = xStart; sx < xEnd; sx += gEff) {
+              var bx = p.floor((sx - ox) * invScale); if (bx < 0 || bx >= BUF_W) continue;
+              var i4 = (rowOff + bx) * 4, r = px[i4], gr = px[i4 + 1], b = px[i4 + 2];
+              if ((r + gr + b) < 12) continue;
+              var bright = r * 0.299 + gr * 0.587 + b * 0.114, cxp = sx + halfG, cyp = sy + halfG, mode;
+              if (transitionDone) mode = curM; else { var hash = ((sx * 73 + sy * 137) & 0xFF) * 0.00392; mode = hash < mt ? curM : prevM; }
+              // Only allocate the fillStyle string when the colour actually
+              // changes from the previous cell (saves the per-cell GC churn
+              // that was inflating the ASCII frame budget).
+              var rgbKey = (r << 16) | (gr << 8) | b;
+              if (rgbKey !== lastRgbKey) {
+                ctx.fillStyle = 'rgb(' + r + ',' + gr + ',' + b + ')';
+                lastRgbKey = rgbKey;
+              }
+              if (mode === 0) {
+                var b01 = bright * 0.00392;
+                var fontSz = p.floor(asciiBase * (0.85 + b01 * 0.30)), fontStr = fontSz + 'px Courier New';
+                if (fontStr !== lastFontStr) { ctx.font = fontStr; lastFontStr = fontStr; }
+                var ci = p.floor(b01 * (charsN - 1)) + (((sx * 7 + sy * 13) & 1));
+                if (ci < 0) ci = 0; else if (ci >= charsN) ci = charsN - 1;
+                ctx.fillText(chars[ci], cxp, cyp);
+              } else if (mode === 1) {
+                var d = gEff * (0.25 + bright * 0.0030);
+                ctx.beginPath();
+                ctx.arc(cxp, cyp, d * 0.5, 0, TWO_PI);
+                ctx.fill();
+              } else {
+                ctx.fillRect(cxp - pixHalf, cyp - pixHalf, pixSide, pixSide);
+              }
+            }
+          }
+          return;
+        }
+
+        /* --------------- Fast direct-pixel path (dots / pixels) -------- */
+        ensurePixelBuf();
+        // Clear to opaque black so empty cells match the p.background(0) bg.
+        pixelData32.fill(0xFF000000);
+        var gEff2 = gg, halfG2 = gEff2 * 0.5;
+        var yStart2 = Math.max(0, Math.floor(oy / gEff2) * gEff2);
+        var yEnd2   = Math.min(p.height, oy + renderH);
+        var xStart2 = Math.max(0, Math.floor(ox / gEff2) * gEff2);
+        var xEnd2   = Math.min(p.width, ox + renderW);
+        var W2 = p.width, H2 = p.height;
+        var side2 = gEff2 * 0.93, halfS = side2 * 0.5;
+        var data32 = pixelData32;
+        for (var sy2 = yStart2; sy2 < yEnd2; sy2 += gEff2) {
+          var byBase2 = Math.floor((sy2 - oy) * invScale); if (byBase2 < 0 || byBase2 >= BUF_H) continue;
+          var rowOff2 = byBase2 * BUF_W;
+          for (var sx2 = xStart2; sx2 < xEnd2; sx2 += gEff2) {
+            var bx2 = Math.floor((sx2 - ox) * invScale); if (bx2 < 0 || bx2 >= BUF_W) continue;
+            var i42 = (rowOff2 + bx2) * 4;
+            var r2 = px[i42], g2 = px[i42 + 1], b2 = px[i42 + 2];
+            if (r2 + g2 + b2 < 12) continue;
+            var bright2 = r2 * 0.299 + g2 * 0.587 + b2 * 0.114;
+            var cxp2 = sx2 + halfG2, cyp2 = sy2 + halfG2, mode2;
+            if (transitionDone) mode2 = curM;
+            else { var hash2 = ((sx2 * 73 + sy2 * 137) & 0xFF) * 0.00392; mode2 = hash2 < mt ? curM : prevM; }
+            // Pack RGBA as little-endian Uint32: byte 0 = R, 1 = G, 2 = B, 3 = A=0xFF.
+            var rgba = 0xFF000000 | (b2 << 16) | (g2 << 8) | r2;
+            if (mode2 === 1) {
+              // dots — filled disc rasterised inside the cell bbox
+              var d2 = gEff2 * (0.25 + bright2 * 0.0030);
+              var rad = d2 * 0.5;
+              var rr2 = rad * rad;
+              var x0 = Math.max(0, Math.floor(cxp2 - rad));
+              var x1 = Math.min(W2 - 1, Math.ceil(cxp2 + rad));
+              var y0 = Math.max(0, Math.floor(cyp2 - rad));
+              var y1 = Math.min(H2 - 1, Math.ceil(cyp2 + rad));
+              for (var yy = y0; yy <= y1; yy++) {
+                var dy = yy - cyp2 + 0.5, dy2 = dy * dy;
+                var rowStart = yy * W2;
+                for (var xx = x0; xx <= x1; xx++) {
+                  var dx2 = xx - cxp2 + 0.5;
+                  if (dx2 * dx2 + dy2 <= rr2) data32[rowStart + xx] = rgba;
+                }
+              }
             } else {
-              ctx.fillRect(cxp - pixHalf, cyp - pixHalf, pixSide, pixSide);
+              // pixels — axis-aligned square block
+              var qx0 = Math.max(0, Math.floor(cxp2 - halfS));
+              var qx1 = Math.min(W2 - 1, Math.ceil(cxp2 + halfS));
+              var qy0 = Math.max(0, Math.floor(cyp2 - halfS));
+              var qy1 = Math.min(H2 - 1, Math.ceil(cyp2 + halfS));
+              for (var yy2 = qy0; yy2 <= qy1; yy2++) {
+                var rowStart2 = yy2 * W2;
+                for (var xx2 = qx0; xx2 <= qx1; xx2++) {
+                  data32[rowStart2 + xx2] = rgba;
+                }
+              }
             }
           }
         }
+        ctx.putImageData(pixelBuf, 0, 0);
       }
 
       function drawHUD() {

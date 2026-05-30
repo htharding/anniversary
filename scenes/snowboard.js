@@ -41,29 +41,29 @@
     D.disc(ftL[0], ftL[1], 1.6 * scl, board[0], board[1], board[2], 1);
     D.disc(ftR[0], ftR[1], 1.6 * scl, board[0], board[1], board[2], 1);
 
-    // PANTS — short stocky region from boards up to jacket hem
-    var pHip = P(0, -8);
-    D.ellipse(pHip[0], pHip[1], 6.5 * scl, 4.5 * scl, ang, pants[0], pants[1], pants[2], 1);
+    // PANTS — slim hip region from boards up to jacket hem
+    var pHip = P(0, -7);
+    D.ellipse(pHip[0], pHip[1], 4.2 * scl, 3.2 * scl, ang, pants[0], pants[1], pants[2], 1);
 
     // JACKET — crouched torso, tilted forward into the slope direction.
     // Body axis tilts slightly more than the slope (rider leans forward).
     var leanAng = ang - 0.20;
-    var jCx = P(2, -14);
-    D.ellipse(jCx[0], jCx[1], 8 * scl, 7 * scl, leanAng, jacket[0], jacket[1], jacket[2], 1);
+    var jCx = P(2, -13);
+    D.ellipse(jCx[0], jCx[1], 5.5 * scl, 4.2 * scl, leanAng, jacket[0], jacket[1], jacket[2], 1);
     // jacket highlight (bright accent on chest catching the sun)
-    var jH = P(4, -15);
-    D.ellipse(jH[0], jH[1], 3.6 * scl, 2.6 * scl, leanAng,
+    var jH = P(3.5, -14);
+    D.ellipse(jH[0], jH[1], 2.4 * scl, 1.6 * scl, leanAng,
               Math.min(255, jacket[0] + 60), Math.min(255, jacket[1] + 60), Math.min(255, jacket[2] + 50), 0.6);
 
     // BACK ARM — tucked behind, jacket-coloured
-    var aB = P(-3, -13);
-    D.ellipse(aB[0], aB[1], 4 * scl, 2.0 * scl, leanAng - 0.4, jacket[0], jacket[1], jacket[2], 1);
+    var aB = P(-2, -12);
+    D.ellipse(aB[0], aB[1], 3.2 * scl, 1.5 * scl, leanAng - 0.4, jacket[0], jacket[1], jacket[2], 1);
     // FRONT ARM — extended forward for balance
-    var aF = P(9, -12);
-    D.ellipse(aF[0], aF[1], 4.5 * scl, 1.9 * scl, leanAng + 0.2, jacket[0], jacket[1], jacket[2], 1);
+    var aF = P(7, -11);
+    D.ellipse(aF[0], aF[1], 3.8 * scl, 1.4 * scl, leanAng + 0.2, jacket[0], jacket[1], jacket[2], 1);
     // glove
-    var gl = P(13, -11);
-    D.disc(gl[0], gl[1], 1.6 * scl, board[0], board[1], board[2], 1);
+    var gl = P(11, -10);
+    D.disc(gl[0], gl[1], 1.4 * scl, board[0], board[1], board[2], 1);
 
     // HEAD — skin disc, sits forward and up from jacket
     var hd = P(6, -20);

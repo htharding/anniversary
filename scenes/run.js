@@ -119,9 +119,9 @@
 
     // ---- TORSO (navy shirt, ellipse) ------------------------------------
     var torC = P(0, 0);
-    D.ellipse(torC[0], torC[1], 18 * sc, 26 * sc, 0,
+    D.ellipse(torC[0], torC[1], 13 * sc, 26 * sc, 0,
               SHIRT_M_SH[0], SHIRT_M_SH[1], SHIRT_M_SH[2], 1);
-    D.ellipse(torC[0], torC[1] - 2 * sc, 16 * sc, 23 * sc, 0,
+    D.ellipse(torC[0], torC[1] - 2 * sc, 11 * sc, 23 * sc, 0,
               SHIRT_M[0], SHIRT_M[1], SHIRT_M[2], 1);
 
     // ---- ARMS — OPEN WIDE, extended forward+slightly up -----------------
@@ -275,9 +275,9 @@
     var Pt = SK.pen(cx, cy, leanAng, sc, 1);
     // shadow underlay
     var tShCx = Pt(0, 0);
-    D.ellipse(tShCx[0], tShCx[1], 16 * sc, 24 * sc, leanAng,
+    D.ellipse(tShCx[0], tShCx[1], 11.5 * sc, 24 * sc, leanAng,
               SHIRT_W_SH[0], SHIRT_W_SH[1], SHIRT_W_SH[2], 1);
-    D.ellipse(tShCx[0], tShCx[1] - 2 * sc, 14 * sc, 21 * sc, leanAng,
+    D.ellipse(tShCx[0], tShCx[1] - 2 * sc, 9.5 * sc, 21 * sc, leanAng,
               SHIRT_W[0], SHIRT_W[1], SHIRT_W[2], 1);
 
     // ---- ARMS ------------------------------------------------------------

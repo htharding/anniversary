@@ -25,80 +25,137 @@
     D.ellipse(cx + w * 0.05, cy - h * 0.55, w * 0.55, h * 0.55, 0, col[0], col[1], col[2], a * 0.55);
   }
 
-  /* ---- brown dog (floppy ears) side view, faces right --------------------*/
+  /* ---- brown dog: GERMAN SHEPHERD, side view, faces right ----------------*/
   function brownDog(D, x, y, scl, bob, tailWag, earFlick) {
-    var body = [124, 78, 52], dark = [78, 48, 32];
+    var tan    = [182, 132, 76];        // golden tan body
+    var saddle = [70, 45, 28];          // dark brown saddle
+    var black  = [22, 16, 14];          // mask + paws + tail tip
     var bx = x, by = y + bob;
-    // back legs
-    D.ellipse(bx - 12 * scl, by + 16 * scl, 2.4 * scl, 7 * scl, 0, dark[0], dark[1], dark[2], 1);
-    D.ellipse(bx - 8 * scl, by + 16 * scl, 2.4 * scl, 7 * scl, 0, dark[0], dark[1], dark[2], 1);
-    // body — elongated ellipse
-    D.ellipse(bx, by + 6 * scl, 16 * scl, 8 * scl, 0, body[0], body[1], body[2], 1);
-    // front legs (slightly forward)
-    D.ellipse(bx + 9 * scl, by + 16 * scl, 2.4 * scl, 7 * scl, 0, dark[0], dark[1], dark[2], 1);
-    D.ellipse(bx + 13 * scl, by + 16 * scl, 2.4 * scl, 7 * scl, 0, dark[0], dark[1], dark[2], 1);
-    // tail — wagging up and back
-    var tx = bx - 15 * scl, ty = by + 2 * scl;
-    D.ellipse(tx + Math.cos(2.2 + tailWag) * 6 * scl,
-              ty - 5 * scl + Math.sin(2.2 + tailWag) * 4 * scl,
-              5 * scl, 1.4 * scl, 2.2 + tailWag, body[0], body[1], body[2], 1);
-    // chest / neck
-    D.ellipse(bx + 11 * scl, by + 2 * scl, 5 * scl, 5.5 * scl, 0.2, body[0], body[1], body[2], 1);
-    // head
+
+    // back legs (tan with dark boots)
+    D.ellipse(bx - 12 * scl, by + 16 * scl, 2.8 * scl, 7.2 * scl, 0, tan[0], tan[1], tan[2], 1);
+    D.ellipse(bx - 8 * scl, by + 16 * scl, 2.8 * scl, 7.2 * scl, 0, tan[0], tan[1], tan[2], 1);
+    D.disc(bx - 12 * scl, by + 22 * scl, 2.4 * scl, black[0], black[1], black[2], 1);
+    D.disc(bx - 8 * scl, by + 22 * scl, 2.4 * scl, black[0], black[1], black[2], 1);
+
+    // body — tan
+    D.ellipse(bx, by + 6 * scl, 16 * scl, 8 * scl, 0, tan[0], tan[1], tan[2], 1);
+    // saddle — dark brown over the back (signature GSD marking)
+    D.ellipse(bx - 2 * scl, by + 2 * scl, 12 * scl, 5 * scl, 0, saddle[0], saddle[1], saddle[2], 1);
+
+    // front legs
+    D.ellipse(bx + 9 * scl, by + 16 * scl, 2.8 * scl, 7.2 * scl, 0, tan[0], tan[1], tan[2], 1);
+    D.ellipse(bx + 13 * scl, by + 16 * scl, 2.8 * scl, 7.2 * scl, 0, tan[0], tan[1], tan[2], 1);
+    D.disc(bx + 9 * scl, by + 22 * scl, 2.4 * scl, black[0], black[1], black[2], 1);
+    D.disc(bx + 13 * scl, by + 22 * scl, 2.4 * scl, black[0], black[1], black[2], 1);
+
+    // tail — bushy, hangs DOWN-BACK (GSD signature, low-set)
+    var tailAng = 2.55 + tailWag * 0.2;
+    var tx = bx - 14 * scl, ty = by + 4 * scl;
+    D.ellipse(tx + Math.cos(tailAng) * 3 * scl,
+              ty + Math.sin(tailAng) * 3 * scl,
+              6 * scl, 2.4 * scl, tailAng, saddle[0], saddle[1], saddle[2], 1);
+    D.ellipse(tx + Math.cos(tailAng) * 9 * scl,
+              ty + Math.sin(tailAng) * 9 * scl,
+              4.5 * scl, 1.7 * scl, tailAng, black[0], black[1], black[2], 1);
+
+    // chest (tan)
+    D.ellipse(bx + 11 * scl, by + 2 * scl, 5 * scl, 5.5 * scl, 0.2, tan[0], tan[1], tan[2], 1);
+
+    // head — tan with long muzzle and black mask
     var hx = bx + 16 * scl, hy = by - 3 * scl;
-    D.disc(hx, hy, 6.5 * scl, body[0], body[1], body[2], 1);
-    // muzzle
-    D.ellipse(hx + 5 * scl, hy + 2 * scl, 3.5 * scl, 2.5 * scl, 0, body[0], body[1], body[2], 1);
+    D.disc(hx, hy, 6.5 * scl, tan[0], tan[1], tan[2], 1);
+    // long muzzle (prominent GSD snout)
+    D.ellipse(hx + 5 * scl, hy + 2 * scl, 5 * scl, 2.8 * scl, 0, tan[0], tan[1], tan[2], 1);
+    // black muzzle mask
+    D.ellipse(hx + 6 * scl, hy + 2.3 * scl, 4 * scl, 2.3 * scl, 0, black[0], black[1], black[2], 1);
+    // eye-area dark wash
+    D.ellipse(hx + 2.8 * scl, hy - 0.6 * scl, 2.4 * scl, 1.5 * scl, 0, black[0], black[1], black[2], 0.55);
     // nose
-    D.disc(hx + 7.5 * scl, hy + 2 * scl, 1.0 * scl, 20, 14, 12, 1);
-    // floppy ear — hangs down beside head
-    var er = 0.25 + earFlick;
-    var ea = hx - 3 * scl, eb = hy + 0 * scl;
-    var c1 = Math.cos(er), s1 = Math.sin(er);
-    D.tri(ea, eb,
-          ea - 1.5 * scl * c1 - 7 * scl * s1, eb - 1.5 * scl * s1 + 7 * scl * c1,
-          ea + 2.5 * scl * c1 - 6 * scl * s1, eb + 2.5 * scl * s1 + 6 * scl * c1,
-          dark[0], dark[1], dark[2], 1);
-    // eye
-    D.disc(hx + 3 * scl, hy - 1 * scl, 0.7 * scl, 240, 235, 220, 1);
+    D.disc(hx + 8.6 * scl, hy + 2 * scl, 1.1 * scl, 10, 8, 8, 1);
+
+    // ERECT POINTED EARS — German Shepherd signature
+    var er = earFlick;
+    // back (further) ear, slightly smaller
+    D.tri(hx - 4 * scl, hy - 3 * scl,
+          hx - 2 * scl, hy - 11 * scl - er * 1.4 * scl,
+          hx + 0 * scl, hy - 3 * scl,
+          saddle[0], saddle[1], saddle[2], 1);
+    // front ear
+    D.tri(hx + 0.5 * scl, hy - 3 * scl,
+          hx + 2.5 * scl, hy - 12 * scl + er * 1.4 * scl,
+          hx + 4.5 * scl, hy - 3 * scl,
+          saddle[0], saddle[1], saddle[2], 1);
+    // inner ear (lighter pink-tan tint inside front ear)
+    D.tri(hx + 1.5 * scl, hy - 4 * scl,
+          hx + 2.5 * scl, hy - 9.5 * scl,
+          hx + 3.5 * scl, hy - 4 * scl,
+          tan[0], tan[1], tan[2], 0.7);
+
+    // alert eye
+    D.disc(hx + 3.5 * scl, hy - 0.3 * scl, 0.8 * scl, 240, 220, 180, 1);
   }
 
-  /* ---- black dog (perky ears) side view, faces right ---------------------*/
+  /* ---- black dog: BLACK AKITA, side view, faces right --------------------*/
   function blackDog(D, x, y, scl, bob, tailWag, earFlick) {
-    var body = [28, 24, 34], dark = [14, 12, 18];
+    var body  = [28, 24, 34];          // primary black coat
+    var dark  = [10, 8, 14];           // darker shadow / paws
+    var sheen = [62, 56, 72];          // subtle highlight on back / chest fluff
     var bx = x, by = y + bob;
-    // back legs
-    D.ellipse(bx - 11 * scl, by + 15 * scl, 2.3 * scl, 7 * scl, 0, dark[0], dark[1], dark[2], 1);
-    D.ellipse(bx - 7 * scl, by + 15 * scl, 2.3 * scl, 7 * scl, 0, dark[0], dark[1], dark[2], 1);
-    // body
-    D.ellipse(bx, by + 5 * scl, 15 * scl, 7.5 * scl, 0, body[0], body[1], body[2], 1);
-    // front legs (lifted slightly for running)
-    D.ellipse(bx + 8 * scl, by + 15 * scl, 2.3 * scl, 7 * scl, 0, dark[0], dark[1], dark[2], 1);
-    D.ellipse(bx + 12 * scl, by + 14 * scl, 2.3 * scl, 7 * scl, 0.2, dark[0], dark[1], dark[2], 1);
-    // tail — up and curled
-    D.ellipse(bx - 14 * scl + Math.cos(1.8 + tailWag) * 2 * scl,
-              by - 2 * scl + Math.sin(1.8 + tailWag) * 2 * scl,
-              5.5 * scl, 1.4 * scl, 1.8 + tailWag * 0.3, body[0], body[1], body[2], 1);
-    // chest
-    D.ellipse(bx + 10 * scl, by + 1 * scl, 5 * scl, 5.5 * scl, 0.2, body[0], body[1], body[2], 1);
-    // head
+
+    // back legs (stocky)
+    D.ellipse(bx - 11 * scl, by + 15 * scl, 2.9 * scl, 7.2 * scl, 0, dark[0], dark[1], dark[2], 1);
+    D.ellipse(bx - 7 * scl, by + 15 * scl, 2.9 * scl, 7.2 * scl, 0, dark[0], dark[1], dark[2], 1);
+
+    // body — stockier / more muscular than the shepherd
+    D.ellipse(bx, by + 5 * scl, 15 * scl, 9 * scl, 0, body[0], body[1], body[2], 1);
+    // subtle back sheen (glossy double-coat)
+    D.ellipse(bx - 1 * scl, by + 0.5 * scl, 10 * scl, 2.4 * scl, 0, sheen[0], sheen[1], sheen[2], 0.45);
+
+    // front legs (stocky)
+    D.ellipse(bx + 8 * scl, by + 15 * scl, 2.9 * scl, 7.2 * scl, 0, dark[0], dark[1], dark[2], 1);
+    D.ellipse(bx + 12 * scl, by + 14 * scl, 2.9 * scl, 7.2 * scl, 0.2, dark[0], dark[1], dark[2], 1);
+
+    // CURLED TAIL — Akita's signature: tight ring over the back
+    // Trace overlapping discs along a circular arc above the rump
+    var curlCx = bx - 7 * scl, curlCy = by - 6 * scl;
+    var curlR  = 6 * scl;
+    var nSeg = 16;
+    for (var ci = 0; ci <= nSeg; ci++) {
+      // sweep from 3π/4 (lower-left of curl) clockwise around to ~ -π/4 (lower-right)
+      var aT = Math.PI * 0.85 - (ci / nSeg) * Math.PI * 1.65 + tailWag * 0.04;
+      var tcx = curlCx + Math.cos(aT) * curlR;
+      var tcy = curlCy + Math.sin(aT) * curlR;
+      var rr  = 2.2 * scl - (ci / nSeg) * 0.5 * scl;
+      D.disc(tcx, tcy, rr, body[0], body[1], body[2], 1);
+    }
+
+    // chest (slightly fluffy)
+    D.ellipse(bx + 10 * scl, by + 1 * scl, 5.6 * scl, 6 * scl, 0.2, body[0], body[1], body[2], 1);
+    D.ellipse(bx + 10 * scl, by + 3 * scl, 4 * scl, 2.4 * scl, 0, sheen[0], sheen[1], sheen[2], 0.35);
+
+    // head — broad, bear-like
     var hx = bx + 15 * scl, hy = by - 4 * scl;
-    D.disc(hx, hy, 6 * scl, body[0], body[1], body[2], 1);
-    // muzzle
-    D.ellipse(hx + 4.5 * scl, hy + 2 * scl, 3 * scl, 2.2 * scl, 0, body[0], body[1], body[2], 1);
-    // nose
-    D.disc(hx + 7 * scl, hy + 2 * scl, 0.9 * scl, 8, 6, 10, 1);
-    // perky triangle ears
-    D.tri(hx - 4 * scl, hy - 4 * scl,
-          hx - 1 * scl, hy - 9 * scl - earFlick * 1.5 * scl,
+    D.disc(hx, hy, 6.8 * scl, body[0], body[1], body[2], 1);
+    // short, blocky muzzle (Akita)
+    D.ellipse(hx + 4 * scl, hy + 2.5 * scl, 3.6 * scl, 2.8 * scl, 0, body[0], body[1], body[2], 1);
+    // nose pad
+    D.disc(hx + 7 * scl, hy + 2.5 * scl, 1.1 * scl, 5, 4, 6, 1);
+
+    // small erect triangular ears (Akita's are small, rounded-base)
+    // back (further) ear
+    D.tri(hx - 3 * scl, hy - 4 * scl,
+          hx - 1 * scl, hy - 8.5 * scl - earFlick * 1.0 * scl,
           hx + 1 * scl, hy - 4 * scl,
           body[0], body[1], body[2], 1);
-    D.tri(hx + 1 * scl, hy - 4 * scl,
-          hx + 4 * scl, hy - 9 * scl + earFlick * 1.5 * scl,
-          hx + 6 * scl, hy - 4 * scl,
+    // front ear
+    D.tri(hx + 2 * scl, hy - 4 * scl,
+          hx + 4 * scl, hy - 8.5 * scl + earFlick * 1.0 * scl,
+          hx + 5.5 * scl, hy - 4 * scl,
           body[0], body[1], body[2], 1);
-    // eye highlight
-    D.disc(hx + 3 * scl, hy - 1 * scl, 0.6 * scl, 220, 215, 200, 1);
+
+    // eye
+    D.disc(hx + 3.5 * scl, hy - 0.8 * scl, 0.8 * scl, 220, 200, 160, 1);
   }
 
   /* ---- gray cat (sleek, tail up) side view, faces left -------------------*/
@@ -271,8 +328,8 @@
 
     /* 10. ANIMALS — foreground, the largest brightest figures ------------*/
     // Bounce/twitch derived from t. Cat does a jump arc around u in [0.55, 0.72].
-    var animalScl = 1.35 * sc;
-    var groundY = 0.86 * H;  // where animal feet rest
+    var animalScl = 2.0 * sc;       // bumped — animals are foreground/close to camera
+    var groundY = 0.88 * H;          // slight drop to fit larger silhouettes
 
     // brown dog (left)
     var bdBob = Math.sin(t * 4.0) * 1.6 * sc;
