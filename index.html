@@ -28,12 +28,13 @@
     <div class="pct" id="loader-pct">0%</div>
   </div>
 
-  <!-- order matters: kit -> scenes -> engine, all classic (non-module) scripts -->
+  <!-- order matters: kit -> scenes manifest/loader -> engine, all classic (non-module) scripts.
+       scenes.js injects scenes/<id>.js tags listed in its MANIFEST and exposes window.scenesReady. -->
   <script src="scene-kit.js"></script>
   <script src="scenes.js"></script>
   <script src="scene-engine.js"></script>
   <script>
-    SceneEngine.boot({ scenes: SCENES });
+    scenesReady.then(function (scenes) { SceneEngine.boot({ scenes: scenes }); });
   </script>
 </body>
 </html>

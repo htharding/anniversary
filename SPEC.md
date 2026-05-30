@@ -38,14 +38,16 @@ dark/near-black backgrounds for negative space.
 | File | Runs in | What it is |
 |---|---|---|
 | `scene-kit.js` | browser + Node | **SceneKit**: pure math + drawing helpers. Author against this. |
-| `scenes.js` | browser + Node | The **scene registry** (array of scene objects). Add scenes here. |
+| `scenes/<id>.js` | browser + Node | **One scene per file** (UMD). Each returns `{id,name,dur,draw}`. |
+| `scenes.js` | browser + Node | **Manifest + loader.** Holds the display-order list of scene ids; in Node requires them, in the browser injects `<script>` tags and exposes `scenesReady`. |
 | `scene-engine.js` | browser only | The **runtime**: p5 D-adapter, styliser, glitch, loader, sequencer + `.`/`,`. |
-| `index.html` | browser | Thin harness: loads p5 + the three scripts, calls `SceneEngine.boot`. |
+| `index.html` | browser | Thin harness: loads p5 + the scripts, awaits `scenesReady`, calls `SceneEngine.boot`. |
 | `preview.js` | Node | **Headless validator**: renders any scene to PNG (raw + stylised). |
 
-`scene-kit.js` and `scenes.js` are environment-agnostic (UMD) and contain **no**
-p5/DOM/canvas references — that is what lets `preview.js` validate them in Node
-and the browser run them unchanged. Keep it that way.
+`scene-kit.js`, `scenes.js`, and every `scenes/<id>.js` are environment-agnostic
+(UMD) and contain **no** p5/DOM/canvas references — that is what lets
+`preview.js` validate them in Node and the browser run them unchanged. Keep it
+that way.
 
 ---
 
@@ -57,14 +59,26 @@ they are classic scripts). Loads p5 from CDN.
 **Controls:** `.` next scene · `,` previous scene · `F` fullscreen · `G` glitch.
 (Arrow Right/Left also flip.) Each scene **loops on its own** until you flip.
 
-**Add a scene:** write a `draw` function in `scenes.js` and append one object to
-the exported array:
+**Add a scene:** two steps.
 
-```js
-{ id: 'rollercoaster', name: 'the drop', dur: 12.0, draw: rollercoaster }
-```
+1. Create `scenes/<id>.js`. Copy the UMD shape from `scenes/placeholder.js`:
 
-That's it — the engine picks it up; `.`/`,` navigation is automatic.
+   ```js
+   (function (root, factory) {
+     if (typeof module !== 'undefined' && module.exports) module.exports = factory(require('../scene-kit.js'));
+     else root.registerScene(factory(root.SceneKit));
+   })(typeof self !== 'undefined' ? self : this, function (SK) {
+     'use strict';
+     function draw(D, W, H, u, t) { /* ... */ }
+     return { id: 'rollercoaster', name: 'the drop', dur: 12.0, draw: draw };
+   });
+   ```
+
+2. Append `'rollercoaster'` to `MANIFEST` in `scenes.js`. Order in the manifest
+   is the gallery flip order.
+
+That's it — `.`/`,` navigation is automatic. Don't edit `index.html` or the
+engine.
 
 **Validate:** `node preview.js rollercoaster` → writes
 `preview_rollercoaster_raw.png` (composition + motion) and
@@ -276,8 +290,8 @@ gallery. This is exactly how the airport scene was tuned.
   ~12; very dark silhouettes need a non-black tone (e.g. `[34,28,50]`).
 - **Hard edges on soft things** dither harshly — feather suns/clouds/terrain.
 - **Keep scenes pure.** No p5, DOM, `window`, canvas, or `localStorage` inside
-  `scenes.js`/`scene-kit.js`, or the Node validator breaks. The engine calls
-  `buf.loadPixels()` for you — don't.
+  any `scenes/<id>.js`, `scenes.js`, or `scene-kit.js`, or the Node validator
+  breaks. The engine calls `buf.loadPixels()` for you — don't.
 - **Files together; classic scripts.** Open `index.html` with the `.js` files in
   the same folder. They're classic `<script src>` (intentionally **not** ES
   modules, which `file://` blocks).
@@ -289,7 +303,7 @@ gallery. This is exactly how the airport scene was tuned.
 
 ## 12. New-scene checklist
 
-- [ ] `draw(D,W,H,u,t)` added to `scenes.js`, registered with `{id,name,dur}`.
+- [ ] `draw(D,W,H,u,t)` defined in `scenes/<id>.js`, returned as `{id,name,dur,draw}`; id appended to `MANIFEST` in `scenes.js`.
 - [ ] Drawn **back to front**; bg via `D.bg` first.
 - [ ] Clear brightness hierarchy; backgrounds near-black for negative space.
 - [ ] Soft things feathered; built things crisp.
