@@ -93,7 +93,8 @@
    * Anchored figure — does not move. He's catching her.
    * (cx, cy) is the centre of his torso.
    * --------------------------------------------------------------------- */
-  function man(D, cx, cy, sc, t) {
+  function man(D, cx, cy, sc, t, catchP) {
+    if (catchP == null) catchP = 0;          // 0 = arms wide open, 1 = arms wrapped around her
     var P = SK.pen(cx, cy, 0, sc, -1);
 
     // ---- LEGS (slightly apart, planted) ---------------------------------
@@ -124,50 +125,52 @@
     D.ellipse(torC[0], torC[1] - 2 * sc, 11 * sc, 23 * sc, 0,
               SHIRT_M[0], SHIRT_M[1], SHIRT_M[2], 1);
 
-    // ---- ARMS — OPEN WIDE, extended forward+slightly up -----------------
-    // Side view: both arms reach LEFT (toward woman) at slight up/down angles.
-    // We draw them as two elongated ellipses (upper arm + forearm).
+    // ---- ARMS — lerp between "open wide" (catchP=0) and "wrapped" (catchP=1)
+    // Side view: arms reach LEFT (toward woman). When she's caught, elbows
+    // tuck in and hands drop to support her at her hip level.
     var armBob = Math.sin(t * 1.6) * 1.2 * sc;
-    // shoulder anchor (his left shoulder, which is the one nearest viewer)
-    var sX = cx - 14 * sc;        // forward of body (toward her)
+    var cp = catchP;
+
+    // ---- near arm (nearest the viewer) ---------------------------------
+    var sX = cx - 14 * sc;
     var sY = cy - 16 * sc;
-    // upper arm reaching forward+slightly UP
-    var elbX = sX - 24 * sc;
-    var elbY = sY - 8 * sc - armBob * 0.4;
-    var handX = elbX - 26 * sc;
-    var handY = elbY - 14 * sc + armBob;
-    // upper arm (shirt sleeve)
-    var midUx = (sX + elbX) / 2, midUy = (sY + elbY) / 2;
-    var ang1 = Math.atan2(elbY - sY, elbX - sX);
-    var len1 = Math.hypot(elbX - sX, elbY - sY);
-    D.ellipse(midUx, midUy, len1 / 2 + 3 * sc, 5 * sc, ang1,
-              SHIRT_M[0], SHIRT_M[1], SHIRT_M[2], 1);
-    // forearm (skin) — sleeves stop at elbow
-    var midFx = (elbX + handX) / 2, midFy = (elbY + handY) / 2;
-    var ang2 = Math.atan2(handY - elbY, handX - elbX);
-    var len2 = Math.hypot(handX - elbX, handY - elbY);
-    D.ellipse(midFx, midFy, len2 / 2 + 2.5 * sc, 4 * sc, ang2,
-              SKIN[0], SKIN[1], SKIN[2], 1);
-    // hand
+    // OPEN pose: arm extended forward + slightly up
+    var elbX0 = sX - 24 * sc;
+    var elbY0 = sY - 8 * sc - armBob * 0.4;
+    var handX0 = elbX0 - 26 * sc;
+    var handY0 = elbY0 - 14 * sc + armBob;
+    // WRAPPED pose: elbow tucks toward body; hand DROPS to cradle her hip
+    var elbX1 = sX - 14 * sc;
+    var elbY1 = sY + 6 * sc;
+    var handX1 = sX - 36 * sc;
+    var handY1 = sY + 16 * sc + armBob * 0.5;
+    var elbX = SK.lerp(elbX0, elbX1, cp);
+    var elbY = SK.lerp(elbY0, elbY1, cp);
+    var handX = SK.lerp(handX0, handX1, cp);
+    var handY = SK.lerp(handY0, handY1, cp);
+    drawArmSeg(D, sX, sY, elbX, elbY, sc, SHIRT_M, 5);
+    drawArmSeg(D, elbX, elbY, handX, handY, sc, SKIN, 4);
     D.disc(handX, handY, 4.5 * sc, SKIN[0], SKIN[1], SKIN[2], 1);
 
-    // far arm — also extended out (behind, slightly higher to read both arms)
+    // ---- far arm (slightly higher to read both arms) -------------------
     var sX2 = cx - 6 * sc;
     var sY2 = cy - 18 * sc;
-    var elb2X = sX2 - 22 * sc;
-    var elb2Y = sY2 - 16 * sc + armBob * 0.4;
-    var hand2X = elb2X - 22 * sc;
-    var hand2Y = elb2Y - 18 * sc - armBob;
-    var midUx2 = (sX2 + elb2X) / 2, midUy2 = (sY2 + elb2Y) / 2;
-    var angU2 = Math.atan2(elb2Y - sY2, elb2X - sX2);
-    var lenU2 = Math.hypot(elb2X - sX2, elb2Y - sY2);
-    D.ellipse(midUx2, midUy2, lenU2 / 2 + 3 * sc, 4.5 * sc, angU2,
-              SHIRT_M_SH[0], SHIRT_M_SH[1], SHIRT_M_SH[2], 1);
-    var midFx2 = (elb2X + hand2X) / 2, midFy2 = (elb2Y + hand2Y) / 2;
-    var angF2 = Math.atan2(hand2Y - elb2Y, hand2X - elb2X);
-    var lenF2 = Math.hypot(hand2X - elb2X, hand2Y - elb2Y);
-    D.ellipse(midFx2, midFy2, lenF2 / 2 + 2.5 * sc, 3.5 * sc, angF2,
-              SKIN_SH[0], SKIN_SH[1], SKIN_SH[2], 1);
+    // OPEN pose
+    var elb2X0 = sX2 - 22 * sc;
+    var elb2Y0 = sY2 - 16 * sc + armBob * 0.4;
+    var hand2X0 = elb2X0 - 22 * sc;
+    var hand2Y0 = elb2Y0 - 18 * sc - armBob;
+    // WRAPPED pose: comes around the FAR side of her back
+    var elb2X1 = sX2 - 16 * sc;
+    var elb2Y1 = sY2 + 2 * sc;
+    var hand2X1 = sX2 - 30 * sc;
+    var hand2Y1 = sY2 + 8 * sc + armBob * 0.3;
+    var elb2X = SK.lerp(elb2X0, elb2X1, cp);
+    var elb2Y = SK.lerp(elb2Y0, elb2Y1, cp);
+    var hand2X = SK.lerp(hand2X0, hand2X1, cp);
+    var hand2Y = SK.lerp(hand2Y0, hand2Y1, cp);
+    drawArmSeg(D, sX2, sY2, elb2X, elb2Y, sc, SHIRT_M_SH, 4.5);
+    drawArmSeg(D, elb2X, elb2Y, hand2X, hand2Y, sc, SKIN_SH, 3.5);
     D.disc(hand2X, hand2Y, 4 * sc, SKIN_SH[0], SKIN_SH[1], SKIN_SH[2], 1);
 
     // ---- NECK -----------------------------------------------------------
@@ -213,59 +216,63 @@
    * --------------------------------------------------------------------- */
   function woman(D, cx, cy, sc, t, phase, phaseT) {
     var P = SK.pen(cx, cy, 0, sc, 1);
-    var stride = Math.sin(t * 7) * 0.8;   // running cadence
+    var stride = Math.sin(t * 13);   // faster running cadence (was t*7)
 
-    // ---- LEGS ------------------------------------------------------------
+    // ---- LEGS — drawn as thigh + shin with a visible knee bend ----------
     if (phase === 'run') {
-      // alternating stride: one leg forward, one back
-      var s = stride;
-      // back leg
-      var bk1 = P(-2, 18), bk2 = P(-10 - s * 4, 56), bk3 = P(-4 - s * 4, 56), bk4 = P(2, 18);
-      D.tri(bk1[0], bk1[1], bk2[0], bk2[1], bk3[0], bk3[1],
-            PANTS_W[0], PANTS_W[1], PANTS_W[2], 1);
-      D.tri(bk1[0], bk1[1], bk3[0], bk3[1], bk4[0], bk4[1],
-            PANTS_W[0], PANTS_W[1], PANTS_W[2], 1);
-      // front leg
-      var fr1 = P(2, 18), fr2 = P(10 + s * 4, 56), fr3 = P(16 + s * 4, 56), fr4 = P(8, 18);
-      D.tri(fr1[0], fr1[1], fr2[0], fr2[1], fr3[0], fr3[1],
-            PANTS_W[0], PANTS_W[1], PANTS_W[2], 1);
-      D.tri(fr1[0], fr1[1], fr3[0], fr3[1], fr4[0], fr4[1],
-            PANTS_W[0], PANTS_W[1], PANTS_W[2], 1);
-      // shoes
-      D.ellipse(cx + (-7 - s * 4) * sc, cy + 58 * sc, 6 * sc, 3 * sc, 0, 22, 18, 28, 1);
-      D.ellipse(cx + (13 + s * 4) * sc, cy + 58 * sc, 6 * sc, 3 * sc, 0, 22, 18, 28, 1);
+      // Two legs running in opposition. Each leg traces an elliptical foot
+      // path; the knee bends MORE when the foot is in the swing (lift) half
+      // of the cycle, giving a high-knee, athletic running silhouette.
+      function runLeg(hipDx, swing) {
+        var hipX = cx + hipDx * sc, hipY = cy + 18 * sc;
+        var lift = Math.max(0, swing);                  // 0..1 during swing-up
+        var footX = cx + (hipDx + swing * 13) * sc;
+        var footY = hipY + (38 - lift * 22) * sc;       // foot lifts off ground
+        // knee is forward of hip and HIGH during swing
+        var kneeX = cx + (hipDx + swing * 5 + 4) * sc;
+        var kneeY = cy + (16 - lift * 11) * sc;
+        drawArmSeg(D, hipX, hipY, kneeX, kneeY, sc, PANTS_W, 5.0);
+        drawArmSeg(D, kneeX, kneeY, footX, footY, sc, PANTS_W, 4.0);
+        D.ellipse(footX, footY + 2 * sc, 6 * sc, 3 * sc, 0, 22, 18, 28, 1);
+      }
+      runLeg(-2, stride);                  // back leg
+      runLeg( 2, -stride);                 // front leg (opposite phase)
     } else if (phase === 'leap') {
-      // legs tucked back (leaping forward), trailing
-      var legAng = SK.lerp(0.0, -0.5, phaseT); // slowly tuck
-      var Pleg = SK.pen(cx, cy, legAng, sc, 1);
-      var bk1 = Pleg(-3, 18), bk2 = Pleg(-14, 50), bk3 = Pleg(-8, 50), bk4 = Pleg(2, 18);
-      D.tri(bk1[0], bk1[1], bk2[0], bk2[1], bk3[0], bk3[1],
-            PANTS_W[0], PANTS_W[1], PANTS_W[2], 1);
-      D.tri(bk1[0], bk1[1], bk3[0], bk3[1], bk4[0], bk4[1],
-            PANTS_W[0], PANTS_W[1], PANTS_W[2], 1);
-      var fr1 = Pleg(2, 18), fr2 = Pleg(-8, 52), fr3 = Pleg(-2, 52), fr4 = Pleg(8, 18);
-      D.tri(fr1[0], fr1[1], fr2[0], fr2[1], fr3[0], fr3[1],
-            PANTS_W[0], PANTS_W[1], PANTS_W[2], 1);
-      D.tri(fr1[0], fr1[1], fr3[0], fr3[1], fr4[0], fr4[1],
-            PANTS_W[0], PANTS_W[1], PANTS_W[2], 1);
-      // shoes
-      var shA = Pleg(-11, 52), shB = Pleg(-5, 52);
-      D.disc(shA[0], shA[1], 3.5 * sc, 22, 18, 28, 1);
-      D.disc(shB[0], shB[1], 3.5 * sc, 22, 18, 28, 1);
-    } else { // caught
-      // legs together, bent slightly, dangling
-      var bk1 = P(-2, 18), bk2 = P(-4, 48), bk3 = P(3, 48), bk4 = P(2, 18);
-      D.tri(bk1[0], bk1[1], bk2[0], bk2[1], bk3[0], bk3[1],
-            PANTS_W[0], PANTS_W[1], PANTS_W[2], 1);
-      D.tri(bk1[0], bk1[1], bk3[0], bk3[1], bk4[0], bk4[1],
-            PANTS_W[0], PANTS_W[1], PANTS_W[2], 1);
-      var fr1 = P(2, 18), fr2 = P(0, 50), fr3 = P(7, 50), fr4 = P(8, 18);
-      D.tri(fr1[0], fr1[1], fr2[0], fr2[1], fr3[0], fr3[1],
-            PANTS_W[0], PANTS_W[1], PANTS_W[2], 1);
-      D.tri(fr1[0], fr1[1], fr3[0], fr3[1], fr4[0], fr4[1],
-            PANTS_W[0], PANTS_W[1], PANTS_W[2], 1);
-      D.disc(cx - 1 * sc, cy + 52 * sc, 3.5 * sc, 22, 18, 28, 1);
-      D.disc(cx + 4 * sc, cy + 52 * sc, 3.5 * sc, 22, 18, 28, 1);
+      // Mid-air leap: knees come forward+up (tucking toward chest as she
+      // arcs into him). Both legs together, slightly offset for parallax.
+      var tuck = SK.easeOutCubic(phaseT);
+      function leapLeg(hipDx, kneeOff, footOff) {
+        var hipX = cx + hipDx * sc, hipY = cy + 18 * sc;
+        var kneeX = cx + (hipDx + 10 + tuck * 4 + kneeOff) * sc;
+        var kneeY = cy + (10 - tuck * 4) * sc;
+        var footX = cx + (hipDx + 4 + footOff) * sc;
+        var footY = cy + (28 - tuck * 6) * sc;
+        drawArmSeg(D, hipX, hipY, kneeX, kneeY, sc, PANTS_W, 5.0);
+        drawArmSeg(D, kneeX, kneeY, footX, footY, sc, PANTS_W, 4.0);
+        D.disc(footX, footY, 3.5 * sc, 22, 18, 28, 1);
+      }
+      leapLeg(-3, 0, -2);                  // back leg
+      leapLeg( 2, 2,  2);                  // front leg (slightly higher knee)
+    } else { // caught — legs LIFT and WRAP around his waist
+      // Knees rise up alongside her torso; feet curl back behind him.
+      // settle ramps quickly so the wrap happens right as she's caught.
+      var settle = SK.easeOutCubic(SK.clamp(phaseT * 2.0, 0, 1));
+      // small kick on first impact, then settles
+      var kick = (1 - settle) * Math.sin(phaseT * Math.PI * 3) * 4;
+      function wrapLeg(hipDx, yLift, footExt) {
+        var hipX = cx + hipDx * sc, hipY = cy + 18 * sc;
+        // knee rises ABOVE hip (legs lifted up at the side of his torso)
+        var kneeX = cx + (hipDx + 14 + settle * 6) * sc;
+        var kneeY = cy + (4 - settle * (16 + yLift) + kick) * sc;
+        // foot wraps further out and slightly down behind him
+        var footX = cx + (hipDx + 22 + settle * (4 + footExt)) * sc;
+        var footY = cy + (16 - settle * (8 + yLift) + kick * 0.5) * sc;
+        drawArmSeg(D, hipX, hipY, kneeX, kneeY, sc, PANTS_W, 5.0);
+        drawArmSeg(D, kneeX, kneeY, footX, footY, sc, PANTS_W, 4.0);
+        D.disc(footX, footY, 3.5 * sc, 22, 18, 28, 1);
+      }
+      wrapLeg(-2, 0, 0);                   // back leg
+      wrapLeg( 2, 3, 2);                   // front leg slightly higher / further
     }
 
     // ---- TORSO (rose shirt) ---------------------------------------------
@@ -371,22 +378,27 @@
            HAIR_M[0], HAIR_M[1], HAIR_M[2], 1);
   }
 
-  // Helper: an arm segment (elongated ellipse) from (x1,y1) to (x2,y2).
-  function drawArmSeg(D, x1, y1, x2, y2, sc, col) {
+  // Helper: a limb segment (elongated ellipse) from (x1,y1) to (x2,y2).
+  // `thick` is the perpendicular half-thickness in sc-units (default 3.5).
+  function drawArmSeg(D, x1, y1, x2, y2, sc, col, thick) {
+    if (thick == null) thick = 3.5;
     var mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
     var ang = Math.atan2(y2 - y1, x2 - x1);
     var len = Math.hypot(x2 - x1, y2 - y1);
-    D.ellipse(mx, my, len / 2 + 2 * sc, 3.5 * sc, ang,
+    D.ellipse(mx, my, len / 2 + 2 * sc, thick * sc, ang,
               col[0], col[1], col[2], 1);
   }
 
-  /* ---- floating heart with bobble -------------------------------------- */
-  function floatHeart(D, x, y, size, t, phase, alpha) {
-    var bob = Math.sin(t * 1.3 + phase) * size * 0.15;
-    var drift = Math.cos(t * 0.8 + phase) * size * 0.10;
-    // subtle pulse
-    var pulse = 1 + 0.08 * Math.sin(t * 2.5 + phase);
-    SK.heart(D, x + drift, y + bob, size * pulse, HEART, alpha);
+  /* ---- floating heart with bobble; `cel` (0..1) ramps the animation up - */
+  function floatHeart(D, x, y, size, t, phase, alpha, cel) {
+    cel = cel || 0;
+    var freqK = 1 + cel * 1.8;        // faster bob/pulse when celebrating
+    var ampK  = 1 + cel * 1.4;        // bigger swings + heart size pulse
+    var bob   = Math.sin(t * 1.3 * freqK + phase) * size * 0.15 * ampK;
+    var drift = Math.cos(t * 0.8 * freqK + phase) * size * 0.10 * ampK;
+    var rise  = cel * size * 0.35 * (0.7 + 0.3 * Math.sin(t * 1.5 + phase));
+    var pulse = 1 + (0.08 + cel * 0.22) * Math.sin(t * 2.5 * freqK + phase);
+    SK.heart(D, x + drift, y + bob - rise, size * pulse, HEART, alpha);
   }
 
   function draw(D, W, H, u, t) {
@@ -482,9 +494,12 @@
     }
 
     /* 7. Draw MAN first (he's behind/anchoring), then WOMAN on top ------- */
-    // Actually: when she's "caught", she should appear in front of him slightly,
-    // but his open arms wrap around her. Draw man first, then woman.
-    man(D, manX, manY - 32 * sc, sc * 1.6, t);
+    // catchProgress ramps as she lands: starts closing slightly near the end
+    // of the leap, fully wrapped during the caught phase.
+    var catchProgress = 0;
+    if (phase === 'leap')   catchProgress = SK.easeInQuad(Math.max(0, (phaseT - 0.6) / 0.4)) * 0.35;
+    else if (phase === 'caught') catchProgress = SK.easeOutCubic(SK.clamp(phaseT * 2.5, 0, 1));
+    man(D, manX, manY - 32 * sc, sc * 1.6, t, catchProgress);
     woman(D, wx, wy - 32 * sc, sc * 1.55, t, phase, phaseT);
 
     /* 8. HEARTS — count ramps with u, each has its own bobble ------------ */
@@ -501,6 +516,8 @@
       [  30, -42,  16],   // upper-right
       [   6, -64,  20]    // top
     ];
+    // celebrate intensity ramps once she's caught (u ~0.78 → 0.96)
+    var cel = SK.smoothstep(0.78, 0.96, u);
     for (var hi = 0; hi < heartCount && hi < slots.length; hi++) {
       var sl = slots[hi];
       var hx = centerHX + sl[0] * sc;
@@ -508,7 +525,7 @@
       // fade-in each heart over a short window
       var birthU = (hi / 6) * 0.80;
       var fade = SK.clamp((u - birthU) / 0.10, 0, 1);
-      floatHeart(D, hx, hy, sl[2] * sc, t, hi * 1.7, fade);
+      floatHeart(D, hx, hy, sl[2] * sc, t, hi * 1.7, fade, cel);
     }
   }
 
