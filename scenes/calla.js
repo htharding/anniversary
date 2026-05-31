@@ -334,6 +334,24 @@
               it.r, it.g, it.b, 1);
       }
     }
+
+    /* 4. ANNIVERSARY MESSAGE — two centred lines, anchored in bottom third  */
+    var line1 = 'HAPPY ANNIVERSARY';
+    var line2 = 'TO MY FAVORITE';
+    var maxLen = Math.max(line1.length, line2.length);
+    var targetW = 0.84 * W;
+    var maxPx = Math.floor((targetW + 1) / (maxLen * 6 - 1));
+    var tPx = Math.max(2, Math.min(maxPx, Math.round(5 * sc)));
+    var textCol = [248, 232, 200];                  // warm cream — anniversary tone
+    var lineGap = tPx;
+    // Centre the 15*tPx-tall block on y = 5/6 H (the middle of the bottom third).
+    var blockY = Math.round(H * (5 / 6) - 7.5 * tPx);
+    var w1 = SK.textWidth(line1, tPx);
+    var w2 = SK.textWidth(line2, tPx);
+    SK.text(D, Math.round((W - w1) / 2), blockY,
+            line1, tPx, textCol, 0.95);
+    SK.text(D, Math.round((W - w2) / 2), blockY + 7 * tPx + lineGap,
+            line2, tPx, textCol, 0.95);
   }
 
   return { id: 'calla', name: 'calla', dur: 10.0, draw: draw };
