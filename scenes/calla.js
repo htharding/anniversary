@@ -193,8 +193,11 @@
     /* 3. FLOWER HEAD — rotating 3-D spathe + spadix ------------------------ */
     var open  = 1.0;                                // always fully bloomed
     var rotY  = u * TWO_PI;                         // one turn per loop
-    var rotX  = Math.sin(t * 0.45) * 0.06;          // ambient wobble
-    var rotZ  = Math.sin(t * 0.32 + 1.2) * 0.04;
+    // POV bobs once up + once down per rotation (loops clean at u=0,1).
+    // Pairs with Y so each side-on view is seen from a different elevation,
+    // selling depth and a sense of scale instead of a flat spin.
+    var rotX  = Math.sin(u * TWO_PI) * 0.20;
+    var rotZ  = Math.sin(t * 0.32 + 1.2) * 0.04;    // tiny ambient roll
     var focal = 440;
 
     function project(P) {
