@@ -284,6 +284,37 @@
         else if (p.key === 'f' || p.key === 'F') { var fs = p.fullscreen(); p.fullscreen(!fs); }
         else if (p.key === 'g' || p.key === 'G') triggerGlitch();
       };
+
+      // ---- mobile swipe navigation ---------------------------------------
+      // Swipe left → next scene, swipe right → previous. Mirrors `.` / `,`.
+      // Returns false from touch handlers to suppress browser scroll/zoom on
+      // the canvas so the swipe isn't fighting page scroll.
+      var SWIPE_PX = 50;          // minimum horizontal travel to count as a swipe
+      var SWIPE_DOMINANCE = 1.3;  // horizontal must beat vertical by this factor
+      var tStartX = 0, tStartY = 0, tTracking = false;
+      function touchPos(e, list) {
+        if (e && e[list] && e[list][0]) return [e[list][0].clientX, e[list][0].clientY];
+        return [p.mouseX, p.mouseY];
+      }
+      p.touchStarted = function (e) {
+        if (e && e.touches && e.touches.length === 1) {
+          var pos = touchPos(e, 'touches');
+          tStartX = pos[0]; tStartY = pos[1]; tTracking = true;
+        } else { tTracking = false; }
+        return false;
+      };
+      p.touchMoved = function () { return false; };
+      p.touchEnded = function (e) {
+        if (!tTracking) return false;
+        tTracking = false;
+        var pos = touchPos(e, 'changedTouches');
+        var dx = pos[0] - tStartX, dy = pos[1] - tStartY;
+        if (Math.abs(dx) > SWIPE_PX && Math.abs(dx) > Math.abs(dy) * SWIPE_DOMINANCE) {
+          if (dx < 0) go(1); else go(-1);
+        }
+        return false;
+      };
+
       p.windowResized = function () { p.resizeCanvas(p.windowWidth, p.windowHeight); };
     };
 

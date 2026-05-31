@@ -454,9 +454,9 @@
               40, 70, 35, 0.55);
 
     /* 6. FIGURE motion — three eased u-phases ---------------------------- *
-     * 0.00–0.45 RUN  : x from 0.12W → 0.40W; y on ground
-     * 0.45–0.75 LEAP : parabolic arc; x → 0.60W; meets man's open arms
-     * 0.75–1.00 CAUGHT: in his embrace, near man, slightly elevated
+     * 0.00–0.17 RUN  : 1.5s of running (was 4s; covers same 40% of W)
+     * 0.17–0.39 LEAP : parabolic arc; x → caughtX
+     * 0.39–1.00 CAUGHT: wrapped at his torso, settles in (gets most of loop)
      * ------------------------------------------------------------------ */
     var wx, wy, phase, phaseT;
     var leapHeight = 0.18 * H;
@@ -464,31 +464,28 @@
     var manX = 0.72 * W;
     var manY = groundY;
 
-    // catch position: she's against his torso, slightly elevated
-    // x slightly left of him so her head sits beside his (not eclipsing it)
+    // catch position: pressed against his torso — her cy ≈ his cy so her
+    // knees in wrap pose sit MIDWAY through his torso, not above his shoulders.
     var caughtX = manX - 44 * sc;
-    var caughtY = manY - 0.05 * H;
+    var caughtY = manY - 0.005 * H;
 
-    if (u < 0.45) {
-      phaseT = u / 0.45;
-      wx = SK.lerp(0.12, 0.40, phaseT) * W;
+    if (u < 0.17) {
+      phaseT = u / 0.17;
+      wx = SK.lerp(0.05, 0.45, phaseT) * W;   // 1.5s sprint across 40% of W
       wy = manY;
       phase = 'run';
-    } else if (u < 0.75) {
-      phaseT = (u - 0.45) / 0.30;
-      // x continues toward man with eased out (initial burst), then ease into catch
-      var xT = SK.easeOutQuad(phaseT * 0.6) + SK.easeInQuad(Math.max(0, phaseT - 0.6) / 0.4) * 0.4;
-      // simpler/cleaner: blend lerp with easeInOutCubic
-      xT = SK.easeInOutCubic(phaseT);
-      wx = SK.lerp(0.40 * W, caughtX, xT);
-      // parabolic arc: y dips up
+    } else if (u < 0.39) {
+      phaseT = (u - 0.17) / 0.22;
+      var xT = SK.easeInOutCubic(phaseT);
+      wx = SK.lerp(0.45 * W, caughtX, xT);
+      // parabolic arc: y arcs up then down into his arms
       wy = manY - leapHeight * Math.sin(phaseT * Math.PI);
       phase = 'leap';
     } else {
-      phaseT = (u - 0.75) / 0.25;
+      phaseT = (u - 0.39) / 0.61;
       wx = caughtX;
-      // tiny settling bob into his arms
-      var settle = (1 - SK.easeOutCubic(SK.clamp(phaseT * 2, 0, 1))) * 0.012 * H;
+      // tiny settle-down (she starts slightly elevated, drops into his arms)
+      var settle = (1 - SK.easeOutCubic(SK.clamp(phaseT * 2, 0, 1))) * -0.012 * H;
       wy = caughtY + settle + Math.sin(t * 1.8) * 0.005 * H;
       phase = 'caught';
     }

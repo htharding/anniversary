@@ -31,7 +31,8 @@
     'snowboard',
     'run',
     'love-me',
-    'continued'
+    'continued',
+    'calla'
   ];
 
   if (typeof module !== 'undefined' && module.exports) {
